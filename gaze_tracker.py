@@ -29,6 +29,8 @@ CONSEC_FRAMES_FOR_BLINK = 2
 
 MODEL_PATH = "face_landmarker.task"
 
+LEFT_EYE_VERT = (386, 374)    # top, bottom
+RIGHT_EYE_VERT = (159, 145)   # top, bottom
 
 def euclidean(p1, p2):
     return math.dist(p1, p2)
@@ -51,6 +53,18 @@ def get_absolute_gaze(iris, corner_left, corner_right):
     ratio = (iris[0] - corner_left[0]) / eye_width
     return max(0.0, min(1.0, ratio))
 
+def vertical_gaze_ratio(landmarks, iris_idx, top_idx, bottom_idx):
+    iris = landmarks[iris_idx]
+    top = landmarks[top_idx]
+    bottom = landmarks[bottom_idx]
+    
+    eye_height = bottom[1] - top[1] 
+    if eye_height == 0:
+        return 0.5
+        
+    # 0 -up , 1 - down 
+    ratio = (iris[1] - top[1]) / eye_height
+    return max(0.0, min(1.0, ratio))
 
 def main():
     base_options = mp_python.BaseOptions(model_asset_path=MODEL_PATH)
@@ -73,7 +87,7 @@ def main():
     csv_file = open(f"logs/{filename}.csv", "w", newline="")
     writer = csv.writer(csv_file)
     writer.writerow(["timestamp", "left_ear", "right_ear", "avg_ear",
-                      "gaze_ratio_left", "gaze_ratio_right", "blink"])
+                      "gaze_ratio_left", "gaze_ratio_right", "blink", "vertical_gaze_ratio_left", "vertical_gaze_ratio_right"])
 
     blink_counter = 0
     total_blinks = 0
@@ -104,6 +118,9 @@ def main():
             gaze_right = get_absolute_gaze(landmarks[RIGHT_IRIS_CENTER], landmarks[33], landmarks[133])
             gaze_left = get_absolute_gaze(landmarks[LEFT_IRIS_CENTER], landmarks[362], landmarks[263])
 
+            v_gaze_left = vertical_gaze_ratio(landmarks, LEFT_IRIS_CENTER, LEFT_EYE_VERT[0], LEFT_EYE_VERT[1])
+            v_gaze_right = vertical_gaze_ratio(landmarks, RIGHT_IRIS_CENTER, RIGHT_EYE_VERT[0], RIGHT_EYE_VERT[1])
+
             blink = 0
             if avg_ear < EAR_BLINK_THRESHOLD:
                 blink_counter += 1
@@ -114,7 +131,7 @@ def main():
                 blink_counter = 0
 
             writer.writerow([time.time() - start_time, left_ear, right_ear,
-                              avg_ear, gaze_left, gaze_right, blink])
+                              avg_ear, gaze_left, gaze_right, blink, v_gaze_left, v_gaze_right])
 
             cv2.putText(frame, f"EAR: {avg_ear:.2f}", (20, 40),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
@@ -122,6 +139,8 @@ def main():
                         cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
             cv2.putText(frame, f"Gaze L/R: {gaze_left:.2f}/{gaze_right:.2f}",
                         (20, 110), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
+            cv2.putText(frame, f"Vertical Gaze L/R: {v_gaze_left:.2f}/{v_gaze_right:.2f}",
+                        (20, 145), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
 
             for idx in LEFT_EYE_EAR_IDX + RIGHT_EYE_EAR_IDX:
                 x, y = landmarks[idx]
