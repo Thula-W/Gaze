@@ -44,7 +44,7 @@ def plot(fileName):
 
     axes[1].plot(df["timestamp"], df["gaze_avg"], alpha=0.3, label="raw gaze ratio")
     axes[1].plot(df["timestamp"], df["gaze_avg_smooth"], label="smoothed gaze ratio")
-    axes[1].set_ylabel("Gaze ratio (0=inner, 1=outer)")
+    axes[1].set_ylabel("Gaze ratio (0=Left, 1=Right)")
     axes[1].set_xlabel("Time (s)")
     axes[1].set_title("Horizontal gaze position over time")
     axes[1].legend()

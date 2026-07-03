@@ -44,14 +44,11 @@ def eye_aspect_ratio(landmarks, idx):
     return (vertical_1 + vertical_2) / (2.0 * horizontal)
 
 
-def gaze_ratio(landmarks, iris_idx, corner_idx):
-    iris = landmarks[iris_idx]
-    inner = landmarks[corner_idx[0]]
-    outer = landmarks[corner_idx[1]]
-    eye_width = outer[0] - inner[0]
+def get_absolute_gaze(iris, corner_left, corner_right):
+    eye_width = corner_right[0] - corner_left[0]
     if eye_width == 0:
         return 0.5
-    ratio = (iris[0] - inner[0]) / eye_width
+    ratio = (iris[0] - corner_left[0]) / eye_width
     return max(0.0, min(1.0, ratio))
 
 
@@ -104,8 +101,8 @@ def main():
             right_ear = eye_aspect_ratio(landmarks, RIGHT_EYE_EAR_IDX)
             avg_ear = (left_ear + right_ear) / 2.0
 
-            gaze_left = gaze_ratio(landmarks, LEFT_IRIS_CENTER, LEFT_EYE_CORNERS)
-            gaze_right = gaze_ratio(landmarks, RIGHT_IRIS_CENTER, RIGHT_EYE_CORNERS)
+            gaze_right = get_absolute_gaze(landmarks[RIGHT_IRIS_CENTER], landmarks[33], landmarks[133])
+            gaze_left = get_absolute_gaze(landmarks[LEFT_IRIS_CENTER], landmarks[362], landmarks[263])
 
             blink = 0
             if avg_ear < EAR_BLINK_THRESHOLD:
