@@ -38,32 +38,51 @@ def plot(fileName):
     print(f"Gaze stability (std dev, lower = steadier): {gaze_stability:.4f}")
     print(f"Vertical gaze stability (std dev, lower = steadier): {v_gaze_stability:.4f}")
 
-    fig, axes = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
+    has_attention = "attention_score" in df.columns
+    num_plots = 4 if has_attention else 3
 
-    axes[0].plot(df["timestamp"], df["avg_ear"], alpha=0.3, label="raw EAR")
-    axes[0].plot(df["timestamp"], df["avg_ear_smooth"], label="smoothed EAR")
-    axes[0].axhline(0.21, color="red", linestyle="--", label="blink threshold")
-    axes[0].set_ylabel("EAR")
-    axes[0].set_title("Eye Aspect Ratio over time (blink detection)")
-    axes[0].legend()
+    # Dynamically scale the figure size based on the number of plots
+    fig, axes = plt.subplots(num_plots, 1, figsize=(10, 2.5 * num_plots), sharex=True)
 
-    axes[1].plot(df["timestamp"], df["gaze_avg"], alpha=0.3, label="raw gaze ratio")
-    axes[1].plot(df["timestamp"], df["gaze_avg_smooth"], label="smoothed gaze ratio")
-    axes[1].set_ylabel("Gaze ratio (0=Left, 1=Right)")
-    axes[1].set_xlabel("Time (s)")
-    axes[1].set_title("Horizontal gaze position over time")
-    axes[1].legend()
+    ax_idx = 0
 
-    axes[2].plot(df["timestamp"], df["v_gaze_avg"], alpha=0.3, label="raw vertical gaze")
-    axes[2].plot(df["timestamp"], df["v_gaze_avg_smooth"], label="smoothed vertical", color="tab:green")
-    axes[2].set_ylabel("V-Gaze (0=Up, 1=Down)")
-    axes[2].set_xlabel("Time (s)")
-    axes[2].set_title("Vertical gaze position over time")
-    axes[2].legend()
+    if has_attention:
+        df["attention_score_smooth"] = smooth(df["attention_score"].values, window=5)
+        axes[ax_idx].plot(df["timestamp"], df["attention_score"], alpha=0.3, label="raw attention", color="tab:purple")
+        axes[ax_idx].plot(df["timestamp"], df["attention_score_smooth"], label="smoothed attention", color="indigo")
+        axes[ax_idx].set_ylabel("Attention Score")
+        axes[ax_idx].set_title("Attention Score over time")
+        axes[ax_idx].legend()
+        ax_idx += 1
+
+    axes[ax_idx].plot(df["timestamp"], df["avg_ear"], alpha=0.3, label="raw EAR")
+    axes[ax_idx].plot(df["timestamp"], df["avg_ear_smooth"], label="smoothed EAR")
+    axes[ax_idx].axhline(0.21, color="red", linestyle="--", label="blink threshold")
+    axes[ax_idx].set_ylabel("EAR")
+    axes[ax_idx].set_title("Eye Aspect Ratio over time (blink detection)")
+    axes[ax_idx].legend()
+    ax_idx += 1
+
+    axes[ax_idx].plot(df["timestamp"], df["gaze_avg"], alpha=0.3, label="raw gaze ratio")
+    axes[ax_idx].plot(df["timestamp"], df["gaze_avg_smooth"], label="smoothed gaze ratio")
+    axes[ax_idx].set_ylabel("Gaze ratio (0=Left, 1=Right)")
+    axes[ax_idx].set_title("Horizontal gaze position over time")
+    axes[ax_idx].legend()
+    ax_idx += 1
+
+    axes[ax_idx].plot(df["timestamp"], df["v_gaze_avg"], alpha=0.3, label="raw vertical gaze")
+    axes[ax_idx].plot(df["timestamp"], df["v_gaze_avg_smooth"], label="smoothed vertical", color="tab:green")
+    axes[ax_idx].set_ylabel("V-Gaze (0=Up, 1=Down)")
+    axes[ax_idx].set_title("Vertical gaze position over time")
+    axes[ax_idx].legend()
+
+    axes[ax_idx].set_xlabel("Time (s)")
 
     os.makedirs("plots", exist_ok=True)
     plt.tight_layout()
     plt.savefig(f"plots/{fileName}_analysis.png", dpi=150)
     print(f"Saved plot to {fileName}_analysis.png")
-    plt.show()
+    plt.show(block=False)
+    plt.pause(10) 
+    plt.close()
 
