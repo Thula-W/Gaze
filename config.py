@@ -6,6 +6,13 @@ CALIBRATION_END_SEC = 10.0
 DISTRACTION_END_SEC = 30.0
 
 NUMBER_OF_DISTRACTORS = 4
+DISTRACTOR_COLORS = [
+    (255, 0, 255),   # Magenta
+    (255, 255, 0),   # Cyan
+    (0, 255, 255),   # Yellow
+    (0, 0, 255),     # Red
+    (0, 128, 255)    # Orange
+]
 
 LEFT_EYE_EAR_IDX = [362, 385, 387, 263, 373, 380]
 RIGHT_EYE_EAR_IDX = [33, 160, 158, 133, 153, 144]
