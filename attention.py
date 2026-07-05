@@ -10,18 +10,14 @@ from mediapipe.tasks import python as mp_python
 from mediapipe.tasks.python import vision
 from datetime import datetime
 
-from gaze_tracker import (
+from config import (
     LEFT_EYE_EAR_IDX, RIGHT_EYE_EAR_IDX,
     LEFT_IRIS_CENTER, RIGHT_IRIS_CENTER,
     LEFT_EYE_VERT, RIGHT_EYE_VERT,
     EAR_BLINK_THRESHOLD, CONSEC_FRAMES_FOR_BLINK,
-    MODEL_PATH, eye_aspect_ratio,
-    get_absolute_gaze, vertical_gaze_ratio, plot
+    MODEL_PATH, CALIBRATION_END_SEC, DISTRACTION_END_SEC, NUMBER_OF_DISTRACTORS, MIN_DISTRACTOR_DISTANCE, HEAD_YAW_WEIGHT, HEAD_PITCH_WEIGHT
 )
-
-HEAD_YAW_WEIGHT = 1.2
-HEAD_PITCH_WEIGHT = 1.2
-MIN_DISTRACTOR_DISTANCE = 350
+from gaze_tracker import (eye_aspect_ratio, get_absolute_gaze, vertical_gaze_ratio, plot)
 
 
 def rotation_matrix_to_euler(matrix4x4):
@@ -40,16 +36,52 @@ def rotation_matrix_to_euler(matrix4x4):
     return yaw, pitch
 
 
-def generate_distractor_position(target_x, target_y, canvas_w, canvas_h,
-                                  min_distance=MIN_DISTRACTOR_DISTANCE, margin=100):
-    for _ in range(200):
-        x = random.randint(margin, canvas_w - margin)
-        y = random.randint(margin, canvas_h - margin)
-        if math.dist((x, y), (target_x, target_y)) >= min_distance:
-            return x, y
-    # Fallback if sampling somehow fails: mirror target across canvas center
-    return canvas_w - target_x, canvas_h - target_y
+# def generate_distractor_position(target_x, target_y, canvas_w, canvas_h,
+#                                   min_distance=MIN_DISTRACTOR_DISTANCE, margin=100):
+#     for _ in range(200):
+#         x = random.randint(margin, canvas_w - margin)
+#         y = random.randint(margin, canvas_h - margin)
+#         if math.dist((x, y), (target_x, target_y)) >= min_distance:
+#             return x, y
+#     # Fallback if sampling somehow fails: mirror target across canvas center
+#     return canvas_w - target_x, canvas_h - target_y
 
+import random
+import math
+
+def generate_distractor_position(target_x, target_y, canvas_w, canvas_h, num_points,
+                                  min_distance=MIN_DISTRACTOR_DISTANCE, margin=100):
+    distractors = []
+    
+    for i in range(num_points):
+        point_placed = False
+        
+        for _ in range(200):
+            x = random.randint(margin, canvas_w - margin)
+            y = random.randint(margin, canvas_h - margin)
+            
+            # 1. Check distance against the main target
+            if math.dist((x, y), (target_x, target_y)) < min_distance:
+                continue
+                
+            # 2. Check distance against already generated distractors to avoid overlapping
+            if any(math.dist((x, y), (dx, dy)) < min_distance for dx, dy in distractors):
+                continue
+            
+            # If it passes both checks, it's a valid point
+            distractors.append((x, y))
+            point_placed = True
+            break
+            
+        # Fallback if the random sampling fails to find a spot after 200 attempts
+        if not point_placed:
+            # Shift the target by an offset based on the current index to avoid duplicate fallbacks
+            offset = (i + 1) * min_distance
+            fallback_x = max(margin, min(canvas_w - margin, (canvas_w - target_x) + offset % 100))
+            fallback_y = max(margin, min(canvas_h - margin, (canvas_h - target_y) + offset % 100))
+            distractors.append((int(fallback_x), int(fallback_y)))
+            
+    return distractors
 
 def main():
     base_options = mp_python.BaseOptions(model_asset_path=MODEL_PATH)
@@ -98,8 +130,8 @@ def main():
 
     target_x = random.randint(150, canvas_w - 150)
     target_y = random.randint(150, canvas_h - 150)
-    distractor_x, distractor_y = generate_distractor_position(
-        target_x, target_y, canvas_w, canvas_h
+    distractors = generate_distractor_position(
+        target_x, target_y, canvas_w, canvas_h, NUMBER_OF_DISTRACTORS
     )
 
     print("Experiment started. Focus on the Attention Stimulus Window.")
@@ -170,17 +202,17 @@ def main():
                     blink = 1
                 blink_counter = 0
 
-            if elapsed < 10.0:
+            if elapsed < CALIBRATION_END_SEC:
                 state = "CALIBRATION"
                 cv2.circle(canvas, (target_x, target_y), 25, (0, 255, 0), -1)
-                remaining = 10.0 - elapsed
+                remaining = CALIBRATION_END_SEC - elapsed
                 cv2.putText(canvas, f"Focus on the Green Circle ({remaining:.1f}s)", (50, 50),
                             cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
 
                 baseline_combined_h.append(combined_h)
                 baseline_combined_v.append(combined_v)
 
-            elif elapsed < 20.0:
+            elif elapsed < DISTRACTION_END_SEC:
                 if state == "CALIBRATION":
                     if baseline_combined_h and baseline_combined_v:
                         anchor_h = sum(baseline_combined_h) / len(baseline_combined_h)
@@ -200,7 +232,20 @@ def main():
                             cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
 
                 if int(elapsed * 2) % 2 == 0:
-                    cv2.circle(canvas, (distractor_x, distractor_y), 40, (0, 0, 255), -1)
+                    if elapsed < CALIBRATION_END_SEC + 5.0:                 
+                        cv2.circle(canvas, (distractors[0][0], distractors[0][1]), 40, (0, 0, 255), -1)
+                    elif elapsed < CALIBRATION_END_SEC + 10.0:
+                        cv2.circle(canvas, (distractors[0][0], distractors[0][1]), 40, (0, 0, 255), -1)
+                        cv2.circle(canvas, (distractors[1][0], distractors[1][1]), 40, (0, 0, 255), -1)
+                    elif elapsed < CALIBRATION_END_SEC + 15.0:
+                        cv2.circle(canvas, (distractors[0][0], distractors[0][1]), 40, (0, 0, 255), -1)
+                        cv2.circle(canvas, (distractors[1][0], distractors[1][1]), 40, (0, 0, 255), -1)
+                        cv2.circle(canvas, (distractors[2][0], distractors[2][1]), 40, (0, 0, 255), -1)
+                    elif elapsed < CALIBRATION_END_SEC + 20.0:
+                        cv2.circle(canvas, (distractors[0][0], distractors[0][1]), 40, (0, 0, 255), -1)
+                        cv2.circle(canvas, (distractors[1][0], distractors[1][1]), 40, (0, 0, 255), -1)
+                        cv2.circle(canvas, (distractors[2][0], distractors[2][1]), 40, (0, 0, 255), -1)
+                        cv2.circle(canvas, (distractors[3][0], distractors[3][1]), 40, (0, 0, 255), -1)
 
                 error = math.dist([combined_h, combined_v], [anchor_h, anchor_v])
                 # Threshold scaled to this person's own calibration-phase

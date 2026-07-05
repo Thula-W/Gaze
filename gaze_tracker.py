@@ -12,25 +12,9 @@ from datetime import datetime
 
 from analyze_plot import plot
 
-# ---------------------------------------------------------------------------
-# Landmark indices (same numbering as legacy Face Mesh with refine_landmarks)
-# ---------------------------------------------------------------------------
-LEFT_EYE_EAR_IDX = [362, 385, 387, 263, 373, 380]
-RIGHT_EYE_EAR_IDX = [33, 160, 158, 133, 153, 144]
+from config import (LEFT_EYE_EAR_IDX, RIGHT_EYE_EAR_IDX, LEFT_IRIS_CENTER, RIGHT_IRIS_CENTER,
+                    LEFT_EYE_VERT, RIGHT_EYE_VERT, EAR_BLINK_THRESHOLD, CONSEC_FRAMES_FOR_BLINK, MODEL_PATH, LEFT_EYE_CORNERS, RIGHT_EYE_CORNERS)
 
-LEFT_EYE_CORNERS = (362, 263)   # inner, outer
-RIGHT_EYE_CORNERS = (133, 33)   # inner, outer
-
-LEFT_IRIS_CENTER = 473
-RIGHT_IRIS_CENTER = 468
-
-EAR_BLINK_THRESHOLD = 0.21
-CONSEC_FRAMES_FOR_BLINK = 2
-
-MODEL_PATH = "face_landmarker.task"
-
-LEFT_EYE_VERT = (386, 374)    # top, bottom
-RIGHT_EYE_VERT = (159, 145)   # top, bottom
 
 def euclidean(p1, p2):
     return math.dist(p1, p2)

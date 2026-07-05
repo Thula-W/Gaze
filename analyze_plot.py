@@ -4,10 +4,7 @@ import matplotlib.pyplot as plt
 from scipy.ndimage import uniform_filter1d
 import os
 
-# Must match the calibration/distraction split used in attention_experiment.py
-CALIBRATION_END_SEC = 10.0
-DISTRACTION_END_SEC = 25.0
-
+from config import (CALIBRATION_END_SEC, DISTRACTION_END_SEC)
 
 def load_data(path):
     df = pd.read_csv(path)
