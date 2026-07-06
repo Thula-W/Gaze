@@ -219,8 +219,8 @@ def plot(fileName):
         ax_block_attention.grid(axis='y', linestyle=':', alpha=0.6)
         
         ax_block_attention.axhline(avg_attention, color="crimson", linestyle="--", linewidth=1.5, label=f"Avg ({avg_attention:.2f})") 
-        # ax_block_attention.text(len(block_labels) - 0.5, avg_attention + 2, f"Avg: {avg_attention:.12}", color="crimson", ha="right", va="bottom", fontsize=9, fontweight="bold")
-        
+        ax_block_attention.legend()
+           
         # Add values on top of the bars
         for bar in bars:
             yval = bar.get_height()
