@@ -248,9 +248,9 @@ def main():
 
                 error = math.dist([combined_h, combined_v], [anchor_h, anchor_v])
                 # Threshold scaled to this person's own calibration-phase
-                # variability (3x their natural noise), rather than a fixed
+                # variability (2x their natural noise), rather than a fixed
                 # constant applied identically to every user/setup.
-                scaled_error = error / (3 * baseline_std)
+                scaled_error = error / (2 * baseline_std)
                 attention_score = max(0.0, 100.0 * (1.0 - scaled_error))
 
                 cv2.putText(canvas, f"Attention: {attention_score:.1f}%", (50, 100),

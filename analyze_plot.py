@@ -32,6 +32,8 @@ def plot(fileName):
     gaze_stability = df["gaze_avg_smooth"].std()
     v_gaze_stability = df["v_gaze_avg_smooth"].std()
 
+    df["gaze_synchrony"] = df["gaze_ratio_left"].rolling(window=90, min_periods=10).corr(df["gaze_ratio_right"])
+
     has_attention = "attention_score" in df.columns
     has_head_pose = "head_yaw_rad" in df.columns and "combined_h" in df.columns
 
@@ -65,7 +67,7 @@ def plot(fileName):
         anchor_v = calib_v.mean() if len(calib_v) else 0.0
         h_std = calib_h.std() if len(calib_h) else 0.15
         v_std = calib_v.std() if len(calib_v) else 0.15
-        radius = 3 * max(0.03, np.sqrt(h_std ** 2 + v_std ** 2))
+        radius = 2 * max(0.03, np.sqrt(h_std ** 2 + v_std ** 2))
 
     if has_attention:
         avg_attention = df.loc[distract_mask, "attention_score"].mean()
@@ -73,7 +75,7 @@ def plot(fileName):
 
     os.makedirs("plots", exist_ok=True)
 
-    num_plots = 3  # EAR, horizontal gaze, vertical gaze
+    num_plots = 4  # EAR, horizontal gaze, vertical gaze, gaze synchrony
     if has_attention:
         num_plots += 1
     if has_head_pose:
@@ -135,16 +137,17 @@ def plot(fileName):
         axes[ax_idx].legend()
         ax_idx += 1
 
-    # 2. EAR Plot
-    axes[ax_idx].plot(df["timestamp"], df["avg_ear"], alpha=0.3, label="raw EAR")
-    axes[ax_idx].plot(df["timestamp"], df["avg_ear_smooth"], label="smoothed EAR")
-    axes[ax_idx].axhline(0.21, color="red", linestyle="--", label="blink threshold")
-    axes[ax_idx].set_ylabel("EAR")
-    axes[ax_idx].set_title("Eye Aspect Ratio over time (blink detection)")
+    axes[ax_idx].plot(df["timestamp"], df["gaze_synchrony"], label="gaze synchrony (r)", color="darkorchid", linewidth=1.5)
+    axes[ax_idx].axhline(0.7, color="green", linestyle=":", label="high synchrony threshold")
+    axes[ax_idx].axhline(0.0, color="gray", linestyle="--")
+    # Pearson correlation coefficients fall bound strictly between -1.0 and 1.0
+    axes[ax_idx].set_ylim(-1.1, 1.1)
+    axes[ax_idx].set_ylabel("Pearson r")
+    axes[ax_idx].set_title("Horizontal Gaze Synchrony (left vs. right eye) over time")
     axes[ax_idx].legend()
     ax_idx += 1
 
-    # 3. Horizontal Gaze Plot
+    #  Horizontal Gaze Plot
     axes[ax_idx].plot(df["timestamp"], df["gaze_avg"], alpha=0.3, label="raw gaze ratio")
     axes[ax_idx].plot(df["timestamp"], df["gaze_avg_smooth"], label="smoothed gaze ratio", color='royalblue')
     axes[ax_idx].axhline(0.5, color="red", linestyle="--", label="center")
@@ -153,12 +156,21 @@ def plot(fileName):
     axes[ax_idx].legend()
     ax_idx += 1
 
-    # 4. Vertical Gaze Plot
+    #  Vertical Gaze Plot
     axes[ax_idx].plot(df["timestamp"], df["v_gaze_avg"], alpha=0.3, label="raw vertical gaze")
     axes[ax_idx].plot(df["timestamp"], df["v_gaze_avg_smooth"], label="smoothed vertical", color="mediumseagreen")
     axes[ax_idx].axhline(0.5, color="red", linestyle="--", label="center")
     axes[ax_idx].set_ylabel("V-Gaze (0=Up, 1=Down)")
     axes[ax_idx].set_title("Vertical gaze position over time (eye-in-head only)")
+    axes[ax_idx].legend()
+    ax_idx += 1
+
+    # EAR Plot
+    axes[ax_idx].plot(df["timestamp"], df["avg_ear"], alpha=0.3, label="raw EAR")
+    axes[ax_idx].plot(df["timestamp"], df["avg_ear_smooth"], label="smoothed EAR")
+    axes[ax_idx].axhline(0.21, color="red", linestyle="--", label="blink threshold")
+    axes[ax_idx].set_ylabel("EAR")
+    axes[ax_idx].set_title("Eye Aspect Ratio over time (blink detection)")
     axes[ax_idx].legend()
     ax_idx += 1
 
@@ -169,7 +181,7 @@ def plot(fileName):
     # RIGHT SIDE: SUMMARY PLOTS 
     # =========================================================================
 
-    one_third = grid_rows // 3
+    one_third = grid_rows // 3 + 1
     two_thirds = 2 * one_third
 
     # Top Plot: Trajectory Map
@@ -197,7 +209,7 @@ def plot(fileName):
         
         # Calculate mean attention per block group
         block_stats = distract_df.groupby("block")["attention_score"].mean()
-        block_labels = [f"B{b}\n({(b-1)*int(DISTRACTOR_INTERVAL_SEC)}s-{(b)*int(DISTRACTOR_INTERVAL_SEC)}s)" for b in block_stats.index]
+        block_labels = [f"B{b}\n({CALIBRATION_END_SEC + (b-1)*int(DISTRACTOR_INTERVAL_SEC)}-{CALIBRATION_END_SEC + b*int(DISTRACTOR_INTERVAL_SEC)}s)" for b in block_stats.index]
         
         # Plot attention bars
         bars = ax_block_attention.bar(block_labels, block_stats.values, color="indigo", width=0.5, alpha=0.85)
@@ -206,10 +218,13 @@ def plot(fileName):
         ax_block_attention.set_title("Average Attention per Distraction Block")
         ax_block_attention.grid(axis='y', linestyle=':', alpha=0.6)
         
+        ax_block_attention.axhline(avg_attention, color="crimson", linestyle="--", linewidth=1.5, label=f"Avg ({avg_attention:.2f})") 
+        # ax_block_attention.text(len(block_labels) - 0.5, avg_attention + 2, f"Avg: {avg_attention:.12}", color="crimson", ha="right", va="bottom", fontsize=9, fontweight="bold")
+        
         # Add values on top of the bars
         for bar in bars:
             yval = bar.get_height()
-            ax_block_attention.text(bar.get_x() + bar.get_width()/2.0, yval + 2, f"{yval:.1f}", ha='center', va='bottom', fontsize=9)
+            ax_block_attention.text(bar.get_x() + bar.get_width()/2.0, yval + 2, f"{yval:.2f}", ha='center', va='bottom', fontsize=9)
     else:
         ax_block_attention.text(0.5, 0.5, "Attention data unavailable\nor calibration phase running", ha='center', va='center')
         ax_block_attention.set_title("Average Attention per Distraction Block")
